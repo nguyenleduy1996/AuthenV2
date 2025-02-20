@@ -115,5 +115,6 @@ namespace DotnetAuth.Controllers
             await _userService.DeleteAsync(id);
             return Ok();
         }
+      
     }
 }

@@ -1,4 +1,4 @@
-using DotnetAuth.Domain.Entities;
+﻿using DotnetAuth.Domain.Entities;
 using DotnetAuth.Exceptions;
 using DotnetAuth.Extensions;
 using DotnetAuth.Infrastructure.Context;
@@ -11,26 +11,16 @@ using Microsoft.OpenApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-
-
 builder.Services.AddHttpContextAccessor();
-
-
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
-
 builder.Services.AddProblemDetails();
+builder.Services.AddControllersWithViews();
 
-builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+// Configure Swagger
 builder.Services.AddEndpointsApiExplorer();
-
-
-
-// Adding Swagger
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "User Auth", Version = "v1", Description = "Services to Authenticate user" });
-
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
@@ -61,53 +51,60 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// Configure CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("CorsPolicy", builder =>
+    {
+        builder.AllowAnyOrigin()
+               .AllowAnyMethod()
+               .AllowAnyHeader();
+    });
+});
 
-
-// Adding Database context 
+// Configure Database
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     options.UseSqlServer(builder.Configuration.GetConnectionString("sqlConnection"));
 });
 
-// Adding Identity
-
+// Configure Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
 
-
-// Adding Services  
+// Add Services  
 builder.Services.AddScoped<IUserServices, UserServiceImpl>();
-builder.Services.AddScoped<ITokenService, ToekenServiceImple>();
+builder.Services.AddScoped<ITokenService, ToekenServiceImple>(); // Sửa tên class đúng
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
-
-// Regsitering AutoMapper
+// Configure AutoMapper
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 
-
-// Adding Jwt from extension method
+// Configure Authentication & Authorization
 builder.Services.ConfigureIdentity();
 builder.Services.ConfigureJwt(builder.Configuration);
 builder.Services.ConfigureCors();
 
-
-
 var app = builder.Build();
-app.UseCors("CorsPolicy");
 
-// Configure the HTTP request pipeline.
+// Middleware
+app.UseExceptionHandler();
+app.UseHttpsRedirection();
+app.UseCors("CorsPolicy");
+app.UseAuthentication();
+app.UseAuthorization();
+
+// Configure Swagger (for Development)
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
-app.UseExceptionHandler();
-
-app.UseAuthorization();
-
-app.MapControllers();
+// Map Controllers
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.Run();
